@@ -532,7 +532,7 @@ void processCaptureResult(CaptureOutputStates& states, const camera_capture_resu
                 }
                 states.activePhysicalId = physicalId;
 
-                if (!states.legacyClient && !states.overrideToPortrait) {
+                if (!states.legacyClient) {
                     auto deviceInfo = states.physicalDeviceInfoMap.find(physicalId);
                     if (deviceInfo != states.physicalDeviceInfoMap.end()) {
                         auto orientation = deviceInfo->second.find(ANDROID_SENSOR_ORIENTATION);

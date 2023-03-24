@@ -344,9 +344,7 @@ void CameraService::filterSPerfClassCharacteristicsLocked() {
         int facing = -1;
         int orientation = 0;
         String8 cameraId8(cameraId.c_str());
-        int portraitRotation;
-        getDeviceVersion(cameraId8, /*overrideToPortrait*/false, /*out*/&portraitRotation,
-                /*out*/&facing, /*out*/&orientation);
+        getDeviceVersion(cameraId8, /*out*/&facing, /*out*/&orientation);
         if (facing == -1) {
             ALOGE("%s: Unable to get camera device \"%s\" facing", __FUNCTION__, cameraId.c_str());
             return;
@@ -685,7 +683,7 @@ Status CameraService::getNumberOfCameras(int32_t type, int32_t* numCameras) {
     return Status::ok();
 }
 
-Status CameraService::getCameraInfo(int cameraId, bool overrideToPortrait,
+Status CameraService::getCameraInfo(int cameraId,
         CameraInfo* cameraInfo) {
     ATRACE_CALL();
     Mutex::Autolock l(mServiceLock);
@@ -713,9 +711,8 @@ Status CameraService::getCameraInfo(int cameraId, bool overrideToPortrait,
     }
 
     Status ret = Status::ok();
-    int portraitRotation;
     status_t err = mCameraProviderManager->getCameraInfo(
-            cameraIdStr.c_str(), overrideToPortrait, &portraitRotation, cameraInfo);
+            cameraIdStr.c_str(), cameraInfo);
     if (err != OK) {
         ret = STATUS_ERROR_FMT(ERROR_INVALID_OPERATION,
                 "Error retrieving camera info from device %d: %s (%d)", cameraId,
@@ -750,7 +747,7 @@ String8 CameraService::cameraIdIntToStr(int cameraIdInt) {
 }
 
 Status CameraService::getCameraCharacteristics(const String16& cameraId,
-        int targetSdkVersion, bool overrideToPortrait, CameraMetadata* cameraInfo) {
+        int targetSdkVersion, CameraMetadata* cameraInfo) {
     ATRACE_CALL();
     if (!cameraInfo) {
         ALOGE("%s: cameraInfo is NULL", __FUNCTION__);
@@ -777,7 +774,7 @@ Status CameraService::getCameraCharacteristics(const String16& cameraId,
             SessionConfigurationUtils::targetPerfClassPrimaryCamera(mPerfClassPrimaryCameraIds,
                     cameraIdStr, targetSdkVersion);
     status_t res = mCameraProviderManager->getCameraCharacteristics(
-            cameraIdStr, overrideForPerfClass, cameraInfo, overrideToPortrait);
+            cameraIdStr, overrideForPerfClass, cameraInfo);
     if (res != OK) {
         if (res == NAME_NOT_FOUND) {
             return STATUS_ERROR_FMT(ERROR_ILLEGAL_ARGUMENT, "Unable to retrieve camera "
@@ -898,8 +895,8 @@ void CameraService::clearCachedVariables() {
     BasicClient::BasicClient::sCameraService = nullptr;
 }
 
-std::pair<int, IPCTransport> CameraService::getDeviceVersion(const String8& cameraId,
-        bool overrideToPortrait, int* portraitRotation, int* facing, int* orientation) {
+std::pair<int, IPCTransport> CameraService::getDeviceVersion(const String8& cameraId, int* facing,
+        int* orientation) {
     ATRACE_CALL();
 
     int deviceVersion = 0;
@@ -918,8 +915,7 @@ std::pair<int, IPCTransport> CameraService::getDeviceVersion(const String8& came
 
     hardware::CameraInfo info;
     if (facing) {
-        res = mCameraProviderManager->getCameraInfo(cameraId.string(), overrideToPortrait,
-                portraitRotation, &info);
+        res = mCameraProviderManager->getCameraInfo(cameraId.string(), &info);
         if (res != OK) {
             return std::make_pair(-1, IPCTransport::INVALID);
         }
@@ -954,8 +950,8 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
         const std::optional<String16>& featureId,  const String8& cameraId,
         int api1CameraId, int facing, int sensorOrientation, int clientPid, uid_t clientUid,
         int servicePid, std::pair<int, IPCTransport> deviceVersionAndTransport,
-        apiLevel effectiveApiLevel, bool overrideForPerfClass, bool overrideToPortrait,
-        bool forceSlowJpegMode, /*out*/sp<BasicClient>* client) {
+        apiLevel effectiveApiLevel, bool overrideForPerfClass, bool forceSlowJpegMode,
+        /*out*/sp<BasicClient>* client) {
     // For HIDL devices
     if (deviceVersionAndTransport.second == IPCTransport::HIDL) {
         // Create CameraClient based on device version reported by the HAL.
@@ -988,16 +984,13 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
         sp<ICameraClient> tmp = static_cast<ICameraClient*>(cameraCb.get());
         *client = new Camera2Client(cameraService, tmp, packageName, featureId,
                 cameraId, api1CameraId, facing, sensorOrientation, clientPid, clientUid,
-                servicePid, overrideForPerfClass, overrideToPortrait, forceSlowJpegMode);
-        ALOGI("%s: Camera1 API (legacy), override to portrait %d, forceSlowJpegMode %d",
-                __FUNCTION__, overrideToPortrait, forceSlowJpegMode);
+                servicePid, overrideForPerfClass, forceSlowJpegMode);
     } else { // Camera2 API route
         sp<hardware::camera2::ICameraDeviceCallbacks> tmp =
                 static_cast<hardware::camera2::ICameraDeviceCallbacks*>(cameraCb.get());
         *client = new CameraDeviceClient(cameraService, tmp, packageName,
                 systemNativeClient, featureId, cameraId, facing, sensorOrientation,
-                clientPid, clientUid, servicePid, overrideForPerfClass, overrideToPortrait);
-        ALOGI("%s: Camera2 API, override to portrait %d", __FUNCTION__, overrideToPortrait);
+                clientPid, clientUid, servicePid, overrideForPerfClass);
     }
     return Status::ok();
 }
@@ -1087,8 +1080,8 @@ Status CameraService::initializeShimMetadata(int cameraId) {
             sp<ICameraClient>{nullptr}, id, cameraId,
             internalPackageName, /*systemNativeClient*/ false, {}, uid, USE_CALLING_PID,
             API_1, /*shimUpdateOnly*/ true, /*oomScoreOffset*/ 0,
-            /*targetSdkVersion*/ __ANDROID_API_FUTURE__, /*overrideToPortrait*/ true,
-            /*forceSlowJpegMode*/false, /*out*/ tmp)
+            /*targetSdkVersion*/ __ANDROID_API_FUTURE__, /*forceSlowJpegMode*/false,
+            /*out*/ tmp)
             ).isOk()) {
         ALOGE("%s: Error initializing shim metadata: %s", __FUNCTION__, ret.toString8().string());
     }
@@ -1604,7 +1597,6 @@ Status CameraService::connect(
         int clientUid,
         int clientPid,
         int targetSdkVersion,
-        bool overrideToPortrait,
         bool forceSlowJpegMode,
         /*out*/
         sp<ICamera>* device) {
@@ -1617,7 +1609,7 @@ Status CameraService::connect(
     ret = connectHelper<ICameraClient,Client>(cameraClient, id, api1CameraId,
             clientPackageName,/*systemNativeClient*/ false, {}, clientUid, clientPid, API_1,
             /*shimUpdateOnly*/ false, /*oomScoreOffset*/ 0, targetSdkVersion,
-            overrideToPortrait, forceSlowJpegMode, /*out*/client);
+            forceSlowJpegMode, /*out*/client);
 
     if(!ret.isOk()) {
         logRejected(id, CameraThreadState::getCallingPid(), String8(clientPackageName),
@@ -1692,7 +1684,6 @@ Status CameraService::connectDevice(
         const String16& clientPackageName,
         const std::optional<String16>& clientFeatureId,
         int clientUid, int oomScoreOffset, int targetSdkVersion,
-        bool overrideToPortrait,
         /*out*/
         sp<hardware::camera2::ICameraDeviceUser>* device) {
 
@@ -1746,7 +1737,7 @@ Status CameraService::connectDevice(
     ret = connectHelper<hardware::camera2::ICameraDeviceCallbacks,CameraDeviceClient>(cameraCb, id,
             /*api1CameraId*/-1, clientPackageNameAdj, systemNativeClient,clientFeatureId,
             clientUid, USE_CALLING_PID, API_2, /*shimUpdateOnly*/ false, oomScoreOffset,
-            targetSdkVersion, overrideToPortrait, /*forceSlowJpegMode*/false,
+            targetSdkVersion, /*forceSlowJpegMode*/false,
             /*out*/client);
 
     if(!ret.isOk()) {
@@ -1809,7 +1800,7 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
         int api1CameraId, const String16& clientPackageNameMaybe, bool systemNativeClient,
         const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
         apiLevel effectiveApiLevel, bool shimUpdateOnly, int oomScoreOffset, int targetSdkVersion,
-        bool overrideToPortrait, bool forceSlowJpegMode,
+        bool forceSlowJpegMode,
         /*out*/sp<CLIENT>& device) {
     binder::Status ret = binder::Status::ok();
 
@@ -1909,10 +1900,8 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
         // give flashlight a chance to close devices if necessary.
         mFlashlight->prepareDeviceOpen(cameraId);
 
-        int portraitRotation;
         auto deviceVersionAndTransport =
-                getDeviceVersion(cameraId, overrideToPortrait, /*out*/&portraitRotation,
-                        /*out*/&facing, /*out*/&orientation);
+                getDeviceVersion(cameraId, /*out*/&facing, /*out*/&orientation);
         if (facing == -1) {
             ALOGE("%s: Unable to get camera device \"%s\"  facing", __FUNCTION__, cameraId.string());
             return STATUS_ERROR_FMT(ERROR_INVALID_OPERATION,
@@ -1926,7 +1915,7 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
                 clientFeatureId, cameraId, api1CameraId, facing, orientation,
                 clientPid, clientUid, getpid(),
                 deviceVersionAndTransport, effectiveApiLevel, overrideForPerfClass,
-                overrideToPortrait, forceSlowJpegMode,
+                forceSlowJpegMode,
                 /*out*/&tmp)).isOk()) {
             return ret;
         }
@@ -1987,25 +1976,8 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
         // Set rotate-and-crop override behavior
         if (mOverrideRotateAndCropMode != ANDROID_SCALER_ROTATE_AND_CROP_AUTO) {
             client->setRotateAndCropOverride(mOverrideRotateAndCropMode);
-        } else if (overrideToPortrait && portraitRotation != 0) {
-            uint8_t rotateAndCropMode = ANDROID_SCALER_ROTATE_AND_CROP_AUTO;
-            switch (portraitRotation) {
-                case 90:
-                    rotateAndCropMode = ANDROID_SCALER_ROTATE_AND_CROP_90;
-                    break;
-                case 180:
-                    rotateAndCropMode = ANDROID_SCALER_ROTATE_AND_CROP_180;
-                    break;
-                case 270:
-                    rotateAndCropMode = ANDROID_SCALER_ROTATE_AND_CROP_270;
-                    break;
-                default:
-                    ALOGE("Unexpected portrait rotation: %d", portraitRotation);
-                    break;
-            }
-            client->setRotateAndCropOverride(rotateAndCropMode);
         } else {
-            client->setRotateAndCropOverride(
+          client->setRotateAndCropOverride(
               CameraServiceProxyWrapper::getRotateAndCropOverride(
                   clientPackageName, facing, multiuser_get_user_id(clientUid)));
         }
@@ -2510,11 +2482,6 @@ Status CameraService::notifyDeviceStateChange(int64_t newState) {
 
     ATRACE_CALL();
 
-    {
-        Mutex::Autolock lock(mServiceLock);
-        mDeviceState = newState;
-    }
-
     mCameraProviderManager->notifyDeviceStateChange(newState);
 
     return Status::ok();
@@ -2548,12 +2515,12 @@ Status CameraService::notifyDisplayConfigurationChange() {
     for (auto& current : clients) {
         if (current != nullptr) {
             const auto basicClient = current->getValue();
-            if (basicClient.get() != nullptr && !basicClient->getOverrideToPortrait()) {
-                basicClient->setRotateAndCropOverride(
-                        CameraServiceProxyWrapper::getRotateAndCropOverride(
-                                basicClient->getPackageName(),
-                                basicClient->getCameraFacing(),
-                                multiuser_get_user_id(basicClient->getClientUid())));
+            if (basicClient.get() != nullptr) {
+              basicClient->setRotateAndCropOverride(
+                  CameraServiceProxyWrapper::getRotateAndCropOverride(
+                      basicClient->getPackageName(),
+                      basicClient->getCameraFacing(),
+                      multiuser_get_user_id(basicClient->getClientUid())));
             }
         }
     }
@@ -2825,8 +2792,7 @@ Status CameraService::supportsCameraApi(const String16& cameraId, int apiVersion
             return STATUS_ERROR(ERROR_ILLEGAL_ARGUMENT, msg.string());
     }
 
-    int portraitRotation;
-    auto deviceVersionAndTransport = getDeviceVersion(id, false, &portraitRotation);
+    auto deviceVersionAndTransport = getDeviceVersion(id);
     if (deviceVersionAndTransport.first == -1) {
         String8 msg = String8::format("Unknown camera ID %s", id.string());
         ALOGE("%s: %s", __FUNCTION__, msg.string());
@@ -3312,13 +3278,13 @@ CameraService::Client::Client(const sp<CameraService>& cameraService,
         const String8& cameraIdStr,
         int api1CameraId, int cameraFacing, int sensorOrientation,
         int clientPid, uid_t clientUid,
-        int servicePid, bool overrideToPortrait) :
+        int servicePid) :
         CameraService::BasicClient(cameraService,
                 IInterface::asBinder(cameraClient),
                 clientPackageName, systemNativeClient, clientFeatureId,
                 cameraIdStr, cameraFacing, sensorOrientation,
                 clientPid, clientUid,
-                servicePid, overrideToPortrait),
+                servicePid),
         mCameraId(api1CameraId)
 {
     int callingPid = CameraThreadState::getCallingPid();
@@ -3348,7 +3314,7 @@ CameraService::BasicClient::BasicClient(const sp<CameraService>& cameraService,
         const String16& clientPackageName, bool nativeClient,
         const std::optional<String16>& clientFeatureId, const String8& cameraIdStr,
         int cameraFacing, int sensorOrientation, int clientPid, uid_t clientUid,
-        int servicePid, bool overrideToPortrait):
+        int servicePid):
         mDestructionStarted(false),
         mCameraIdStr(cameraIdStr), mCameraFacing(cameraFacing), mOrientation(sensorOrientation),
         mClientPackageName(clientPackageName), mSystemNativeClient(nativeClient),
@@ -3356,7 +3322,6 @@ CameraService::BasicClient::BasicClient(const sp<CameraService>& cameraService,
         mClientPid(clientPid), mClientUid(clientUid),
         mServicePid(servicePid),
         mDisconnected(false), mUidIsTrusted(false),
-        mOverrideToPortrait(overrideToPortrait),
         mAudioRestriction(hardware::camera2::ICameraDeviceUser::AUDIO_RESTRICTION_NONE),
         mRemoteBinder(remoteCallback),
         mOpsActive(false),

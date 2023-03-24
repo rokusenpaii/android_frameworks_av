@@ -120,7 +120,7 @@ public:
     static sp<TCam>      connect(int cameraId,
                                  const String16& clientPackageName,
                                  int clientUid, int clientPid, int targetSdkVersion,
-                                 bool overrideToPortrait, bool forceSlowJpegMode);
+                                 bool forceSlowJpegMode);
     virtual void         disconnect();
 
     void                 setListener(const sp<TCamListener>& listener);
@@ -128,7 +128,6 @@ public:
     static int           getNumberOfCameras();
 
     static status_t      getCameraInfo(int cameraId,
-                                       bool overrideToPortrait,
                                        /*out*/
                                        struct hardware::CameraInfo* cameraInfo);
 
