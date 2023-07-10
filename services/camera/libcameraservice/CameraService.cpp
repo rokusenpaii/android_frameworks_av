@@ -950,7 +950,7 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
         const std::optional<String16>& featureId,  const String8& cameraId,
         int api1CameraId, int facing, int sensorOrientation, int clientPid, uid_t clientUid,
         int servicePid, std::pair<int, IPCTransport> deviceVersionAndTransport,
-        apiLevel effectiveApiLevel, bool overrideForPerfClass, bool forceSlowJpegMode,
+        apiLevel effectiveApiLevel, bool overrideForPerfClass,
         /*out*/sp<BasicClient>* client) {
     // For HIDL devices
     if (deviceVersionAndTransport.second == IPCTransport::HIDL) {
@@ -984,7 +984,7 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
         sp<ICameraClient> tmp = static_cast<ICameraClient*>(cameraCb.get());
         *client = new Camera2Client(cameraService, tmp, packageName, featureId,
                 cameraId, api1CameraId, facing, sensorOrientation, clientPid, clientUid,
-                servicePid, overrideForPerfClass, forceSlowJpegMode);
+                servicePid, overrideForPerfClass);
     } else { // Camera2 API route
         sp<hardware::camera2::ICameraDeviceCallbacks> tmp =
                 static_cast<hardware::camera2::ICameraDeviceCallbacks*>(cameraCb.get());
@@ -1080,8 +1080,7 @@ Status CameraService::initializeShimMetadata(int cameraId) {
             sp<ICameraClient>{nullptr}, id, cameraId,
             internalPackageName, /*systemNativeClient*/ false, {}, uid, USE_CALLING_PID,
             API_1, /*shimUpdateOnly*/ true, /*oomScoreOffset*/ 0,
-            /*targetSdkVersion*/ __ANDROID_API_FUTURE__, /*forceSlowJpegMode*/false,
-            /*out*/ tmp)
+            /*targetSdkVersion*/ __ANDROID_API_FUTURE__, /*out*/ tmp)
             ).isOk()) {
         ALOGE("%s: Error initializing shim metadata: %s", __FUNCTION__, ret.toString8().string());
     }
@@ -1597,7 +1596,6 @@ Status CameraService::connect(
         int clientUid,
         int clientPid,
         int targetSdkVersion,
-        bool forceSlowJpegMode,
         /*out*/
         sp<ICamera>* device) {
 
@@ -1609,7 +1607,7 @@ Status CameraService::connect(
     ret = connectHelper<ICameraClient,Client>(cameraClient, id, api1CameraId,
             clientPackageName,/*systemNativeClient*/ false, {}, clientUid, clientPid, API_1,
             /*shimUpdateOnly*/ false, /*oomScoreOffset*/ 0, targetSdkVersion,
-            forceSlowJpegMode, /*out*/client);
+            /*out*/client);
 
     if(!ret.isOk()) {
         logRejected(id, CameraThreadState::getCallingPid(), String8(clientPackageName),
@@ -1737,8 +1735,7 @@ Status CameraService::connectDevice(
     ret = connectHelper<hardware::camera2::ICameraDeviceCallbacks,CameraDeviceClient>(cameraCb, id,
             /*api1CameraId*/-1, clientPackageNameAdj, systemNativeClient,clientFeatureId,
             clientUid, USE_CALLING_PID, API_2, /*shimUpdateOnly*/ false, oomScoreOffset,
-            targetSdkVersion, /*forceSlowJpegMode*/false,
-            /*out*/client);
+            targetSdkVersion, /*out*/client);
 
     if(!ret.isOk()) {
         logRejected(id, callingPid, String8(clientPackageNameAdj), ret.toString8());
@@ -1800,7 +1797,6 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
         int api1CameraId, const String16& clientPackageNameMaybe, bool systemNativeClient,
         const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
         apiLevel effectiveApiLevel, bool shimUpdateOnly, int oomScoreOffset, int targetSdkVersion,
-        bool forceSlowJpegMode,
         /*out*/sp<CLIENT>& device) {
     binder::Status ret = binder::Status::ok();
 
@@ -1915,7 +1911,6 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
                 clientFeatureId, cameraId, api1CameraId, facing, orientation,
                 clientPid, clientUid, getpid(),
                 deviceVersionAndTransport, effectiveApiLevel, overrideForPerfClass,
-                forceSlowJpegMode,
                 /*out*/&tmp)).isOk()) {
             return ret;
         }

@@ -141,7 +141,6 @@ public:
     virtual binder::Status     connect(const sp<hardware::ICameraClient>& cameraClient,
             int32_t cameraId, const String16& clientPackageName,
             int32_t clientUid, int clientPid, int targetSdkVersion,
-            bool forceSlowJpegMode,
             /*out*/
             sp<hardware::ICamera>* device);
 
@@ -852,7 +851,6 @@ private:
             int api1CameraId, const String16& clientPackageNameMaybe, bool systemNativeClient,
             const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
             apiLevel effectiveApiLevel, bool shimUpdateOnly, int scoreOffset, int targetSdkVersion,
-            bool forceSlowJpegMode,
             /*out*/sp<CLIENT>& device);
 
     // Lock guarding camera service state
@@ -1274,7 +1272,7 @@ private:
             const String8& cameraId, int api1CameraId, int facing, int sensorOrientation,
             int clientPid, uid_t clientUid, int servicePid,
             std::pair<int, IPCTransport> deviceVersionAndIPCTransport, apiLevel effectiveApiLevel,
-            bool overrideForPerfClass, bool forceSlowJpegMode, /*out*/sp<BasicClient>* client);
+            bool overrideForPerfClass, /*out*/sp<BasicClient>* client);
 
     status_t checkCameraAccess(const String16& opPackageName);
 

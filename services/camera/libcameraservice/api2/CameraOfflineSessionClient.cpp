@@ -92,6 +92,7 @@ void CameraOfflineSessionClient::setStreamUseCaseOverrides(
 void CameraOfflineSessionClient::clearStreamUseCaseOverrides() {
 }
 
+
 status_t CameraOfflineSessionClient::dump(int fd, const Vector<String16>& args) {
     return BasicClient::dump(fd, args);
 }

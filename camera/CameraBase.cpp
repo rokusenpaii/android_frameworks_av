@@ -161,8 +161,7 @@ const sp<::android::hardware::ICameraService> CameraBase<TCam, TCamTraits>::getC
 template <typename TCam, typename TCamTraits>
 sp<TCam> CameraBase<TCam, TCamTraits>::connect(int cameraId,
                                                const String16& clientPackageName,
-                                               int clientUid, int clientPid, int targetSdkVersion,
-                                               bool forceSlowJpegMode)
+                                               int clientUid, int clientPid, int targetSdkVersion)
 {
     ALOGV("%s: connect", __FUNCTION__);
     sp<TCam> c = new TCam(cameraId);
@@ -173,7 +172,7 @@ sp<TCam> CameraBase<TCam, TCamTraits>::connect(int cameraId,
     if (cs != nullptr) {
         TCamConnectService fnConnectService = TCamTraits::fnConnectService;
         ret = (cs.get()->*fnConnectService)(cl, cameraId, clientPackageName, clientUid,
-                clientPid, targetSdkVersion, forceSlowJpegMode, /*out*/ &c->mCamera);
+                clientPid, targetSdkVersion, /*out*/ &c->mCamera);
     }
     if (ret.isOk() && c->mCamera != nullptr) {
         IInterface::asBinder(c->mCamera)->linkToDeath(c);

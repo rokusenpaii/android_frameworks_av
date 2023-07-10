@@ -71,10 +71,10 @@ Camera::~Camera()
 }
 
 sp<Camera> Camera::connect(int cameraId, const String16& clientPackageName,
-        int clientUid, int clientPid, int targetSdkVersion, bool forceSlowJpegMode)
+        int clientUid, int clientPid, int targetSdkVersion)
 {
     return CameraBaseT::connect(cameraId, clientPackageName, clientUid,
-            clientPid, targetSdkVersion, forceSlowJpegMode);
+            clientPid, targetSdkVersion);
 }
 
 status_t Camera::reconnect()
